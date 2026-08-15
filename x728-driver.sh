@@ -2,6 +2,7 @@
 # X728 Container Driver Script for Network UPS Tools (NUT)
 DEV_FILE="/etc/nut/x728.dev"
 CMD_FILE="/etc/nut/x728.dev.cmd"
+BUZZER_STATE="disabled"
 
 read_i2c_telemetry() {
   python3 -c "
@@ -36,11 +37,32 @@ read_ac_power() {
   fi
 }
 
+read_cpu_temp() {
+  if [ -f /sys/class/thermal/thermal_zone0/temp ]; then
+    MILLIC=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null)
+    python3 -c "print(round($MILLIC / 1000.0, 1))" 2>/dev/null
+  else
+    echo "45.0"
+  fi
+}
+
+set_buzzer() {
+  STATE="$1"
+  if [ "$STATE" = "enabled" ]; then
+    BUZZER_STATE="enabled"
+    gpioset 0 20=1 2>/dev/null || true
+  else
+    BUZZER_STATE="disabled"
+    gpioset 0 20=0 2>/dev/null || true
+  fi
+}
+
 update_dev_file() {
   TELEM=$(read_i2c_telemetry)
   VOLT=$(echo "$TELEM" | cut -d':' -f1)
   CAP=$(echo "$TELEM" | cut -d':' -f2)
   AC_VAL=$(read_ac_power)
+  TEMP=$(read_cpu_temp)
 
   if [ "$AC_VAL" = "0" ]; then
     STATUS="OB DISCHRG"
@@ -51,6 +73,7 @@ update_dev_file() {
   fi
 
   cat << EOF2 > "$DEV_FILE"
+ambient.temperature: ${TEMP:-45.0}
 battery.charge: ${CAP:-100.0}
 battery.voltage: ${VOLT:-4.10}
 battery.voltage.nominal: 3.7
@@ -65,6 +88,7 @@ input.voltage: ${IN_VOLT}
 input.voltage.nominal: 5.0
 output.voltage: 5.0
 output.voltage.nominal: 5.0
+ups.beeper.status: ${BUZZER_STATE}
 ups.status: ${STATUS}
 EOF2
   chmod 666 "$DEV_FILE" 2>/dev/null || true
@@ -80,6 +104,10 @@ while true; do
       poweroff || shutdown -h now
     elif [ "$CMD" = "reboot" ]; then
       reboot
+    elif [ "$CMD" = "beeper.enable" ] || [ "$CMD" = "beeper.on" ] || [ "$CMD" = "beeper.toggle" ]; then
+      set_buzzer "enabled"
+    elif [ "$CMD" = "beeper.disable" ] || [ "$CMD" = "beeper.off" ]; then
+      set_buzzer "disabled"
     fi
   fi
 
