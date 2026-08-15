@@ -24,13 +24,16 @@ except Exception as e:
 
 read_ac_power() {
   if command -v gpioget >/dev/null 2>&1; then
-    VAL=$(gpioget 0 6 2>/dev/null)
+    RAW=$(gpioget -c 0 6 2>/dev/null || gpioget 0 6 2>/dev/null)
+    case "$RAW" in
+      *inactive*|*0*) echo "0" ;;
+      *) echo "1" ;;
+    esac
   elif [ -f /sys/class/gpio/gpio6/value ]; then
-    VAL=$(cat /sys/class/gpio/gpio6/value 2>/dev/null)
+    cat /sys/class/gpio/gpio6/value 2>/dev/null
   else
-    VAL="1"
+    echo "1"
   fi
-  echo "$VAL"
 }
 
 update_dev_file() {
