@@ -41,20 +41,27 @@ update_dev_file() {
 
   if [ "$AC_VAL" = "0" ]; then
     STATUS="OB DISCHRG"
+    IN_VOLT="0.0"
   else
     STATUS="OL"
+    IN_VOLT="5.0"
   fi
 
   cat << EOF2 > "$DEV_FILE"
 battery.charge: ${CAP:-100.0}
 battery.voltage: ${VOLT:-4.10}
 battery.voltage.nominal: 3.7
+battery.voltage.high: 4.20
+battery.voltage.low: 3.00
 device.mfr: Geekworm
 device.model: X728 Integrated Container Driver
 device.type: ups
 driver.name: dummy-ups
 driver.version: 2.8.3
-input.voltage: 230.0
+input.voltage: ${IN_VOLT}
+input.voltage.nominal: 5.0
+output.voltage: 5.0
+output.voltage.nominal: 5.0
 ups.status: ${STATUS}
 EOF2
   chmod 666 "$DEV_FILE" 2>/dev/null || true
