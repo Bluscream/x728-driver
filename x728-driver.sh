@@ -16,6 +16,8 @@ try:
     read_c = bus.read_word_data(0x36, 0x04)
     swapped_c = struct.unpack('<H', struct.pack('>H', read_c))[0]
     cap = (swapped_c / 256.0)
+    if cap > 100.0:
+      cap = 100.0
 
     print('%s:%s' % (round(volt, 2), round(cap, 1)))
 except Exception as e:
@@ -57,6 +59,14 @@ set_buzzer() {
   fi
 }
 
+hardware_soft_shutdown() {
+  # Trigger X728 hardware latch shutdown pin:
+  # GPIO 26 for X728 v2.x, GPIO 13 for X728 v1.x
+  gpioset 0 26=1 2>/dev/null || gpioset 0 13=1 2>/dev/null || true
+  sleep 3
+  gpioset 0 26=0 2>/dev/null || gpioset 0 13=0 2>/dev/null || true
+}
+
 update_dev_file() {
   TELEM=$(read_i2c_telemetry)
   VOLT=$(echo "$TELEM" | cut -d':' -f1)
@@ -70,6 +80,13 @@ update_dev_file() {
   else
     STATUS="OL"
     IN_VOLT="5.0"
+  fi
+
+  # Auto low-battery protection (< 3.0V)
+  VOLT_NUM=$(python3 -c "print(float('${VOLT:-4.10}'))" 2>/dev/null || echo "4.10")
+  IS_LOW=$(python3 -c "print(1 if $VOLT_NUM < 3.00 else 0)" 2>/dev/null || echo "0")
+  if [ "$IS_LOW" = "1" ] && [ "$AC_VAL" = "0" ]; then
+    STATUS="OB LB DISCHRG"
   fi
 
   cat << EOF2 > "$DEV_FILE"
@@ -101,6 +118,7 @@ while true; do
     CMD=$(cat "$CMD_FILE")
     rm -f "$CMD_FILE"
     if [ "$CMD" = "shutdown" ] || [ "$CMD" = "FSD" ]; then
+      hardware_soft_shutdown
       poweroff || shutdown -h now
     elif [ "$CMD" = "reboot" ]; then
       reboot
