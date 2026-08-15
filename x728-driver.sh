@@ -52,10 +52,12 @@ set_buzzer() {
   STATE="$1"
   if [ "$STATE" = "enabled" ]; then
     BUZZER_STATE="enabled"
-    gpioset 0 20=1 2>/dev/null || true
+    # libgpiod v2 pulse or hold
+    gpioset 0 20=1 2>/dev/null || gpioset -c 0 20=1 2>/dev/null || true
   else
     BUZZER_STATE="disabled"
-    gpioset 0 20=0 2>/dev/null || true
+    pkill -9 gpioset 2>/dev/null || true
+    gpioset 0 20=0 2>/dev/null || gpioset -c 0 20=0 2>/dev/null || true
   fi
 }
 
