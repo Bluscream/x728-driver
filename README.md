@@ -16,10 +16,14 @@ Native Rust event-driven daemon and Network UPS Tools (NUT) container driver int
 ### 1. `ups.conf` configuration
 Add the X728 UPS entry to your `/etc/nut/ups.conf`:
 
+> ⚠️ **Important**: Set `mode = dummy-loop` so `dummy-ups` keeps the driver connection continuously open for Home Assistant.
+
 ```ini
 [x728]
   driver = dummy-ups
   port = /etc/nut/x728.dev
+  mode = dummy-loop
+  pollinterval = 2
   desc = "Geekworm X728 Expansion Board"
 ```
 
@@ -54,16 +58,8 @@ Connect Home Assistant to `nut-upsd` on port `3493`:
 Exposes:
 - `battery.charge` (%)
 - `battery.voltage` (V)
+- `input.voltage` (5.0 V DC)
 - `ups.status` (`OL` = On Line, `OB DISCHRG` = On Battery / Discharging)
-
----
-
-## 🦀 Building Rust Daemon (`x728d`)
-
-```bash
-cd x728d
-cargo build --release
-```
 
 ---
 
